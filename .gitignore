@@ -1,0 +1,43 @@
+/target/
+/*/target
+/*/project
+
+# Ignore all dotfiles except travis.yml and .gitignore
+.*
+!.travis.yml
+!.gitignore
+!.gitattributes
+
+# Eclipse specific
+.classpath
+.project
+.cache
+.settings
+.scalastyle
+
+# ignore saved files
+*~
+
+# Remove ensime
+.ensime*
+
+# Scala-IDE specific
+.scala_dependencies
+.worksheet
+/RUNNING_PID
+/logs/
+/project/*-shim.sbt
+/project/project/
+/project/target/
+/target/
+/.scalastyle
+
+# IDEA specific
+/.idea/*
+*.iml
+
+#System
+*.iml
+.DS_Store
+/logs/
+

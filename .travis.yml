@@ -1,0 +1,9 @@
+language: scala
+jdk:
+  - oraclejdk8
+scala:
+  - 2.11.8
+before_install:
+  - sudo apt-get update
+script:
+  - sbt scalastyle test:scalastyle test doc test:doc
