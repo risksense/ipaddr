@@ -35,7 +35,7 @@ class IpNetworkTest extends UnitSpec {
   private val range2 = IpRange(netAddr, netAddr3)
   private val range3 = IpRange(netAddr4, netAddr2)
 
-  "Creating a Network " should "result in IpError if address is invalid" in {
+  "Creating an IpNetwork " should "result in IpaddrException if address is invalid" in {
     an[IpaddrException] should be thrownBy IpNetwork("192.168.256/24")
     an[IpaddrException] should be thrownBy IpNetwork("192.168.256/256.255.255.0")
   }
@@ -99,13 +99,11 @@ class IpNetworkTest extends UnitSpec {
     (net1 == "1.2.3.4") should be(false)
   }
 
-  it should "perform iterHosts operation" in {
-    val maxNet = IpNetwork("255.255.255.255/30")
-    val n1 = IpNetwork("192.168.1.1/32")
-    an[IpaddrException] should be thrownBy maxNet.next()
-    maxNet.iterHosts.size should be(2)
-    n1.iterHosts should be('empty)
-    n1.iter.toString should be("Vector(192.168.1.1)")
+  it should "perform allHosts operation" in {
+    IpNetwork("192.168.1.1/30").allHosts.force should be(
+      Seq(IpAddress("192.168.1.0"), IpAddress("192.168.1.1"),
+          IpAddress("192.168.1.2"), IpAddress("192.168.1.3"))
+    )
   }
 
   "Network object" should "not contain bad input" in {

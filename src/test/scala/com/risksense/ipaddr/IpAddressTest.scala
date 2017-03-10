@@ -42,7 +42,7 @@ class IpAddressTest extends UnitSpec {
     List(i, j, k, l).mkString(".")
   }).tail
 
-  "Creating an IpAddress" should "result in IpError if address is invalid" in {
+  "Creating an IpAddress" should "result in IpaddrException if address is invalid" in {
     an[IpaddrException] should be thrownBy IpAddress("192.168.1")
     an[IpaddrException] should be thrownBy IpAddress(4294967296L)
     for { invalidIp <- ipInvalidStrings } {

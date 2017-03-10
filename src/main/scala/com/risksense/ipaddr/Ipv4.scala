@@ -168,24 +168,23 @@ object Ipv4 {
     * Expands a partial IPv4 address into a full 4-octet version and also checks the validity of
     * the expanded address.
     *
-    * @param address a partial or abbreviated IPv4 address
+    * @param partialAddress a partial or abbreviated IPv4 address
     * @return an expanded IP address in presentation format (x.x.x.x)
     *
     * @example 192 -> returns Some("192.0.0.0") because the result is valid address <br/>
     * 256 -> returns None because address `256.0.0.0` is invalid
     */
-  def expandPartialAddress(address: String): Option[String] = {
-    val res = address match {
-      case Net1Regex(_*) => Some(address + ".0.0.0")
-      case Net2Regex(_*) => Some(address + ".0.0")
-      case Net3Regex(_*) => Some(address + ".0")
-      case Net4Regex(_*) => Some(address)
+  def expandPartialAddress(partialAddress: String): Option[String] = {
+    val completeAddress = partialAddress match {
+      case Net1Regex(_*) => Some(partialAddress + ".0.0.0")
+      case Net2Regex(_*) => Some(partialAddress + ".0.0")
+      case Net3Regex(_*) => Some(partialAddress + ".0")
+      case Net4Regex(_*) => Some(partialAddress)
       case _ => None
     }
-    if (res.isDefined && isValidAddress(res.get)) {
-      res
-    } else {
-      None
+    completeAddress match {
+      case Some(addr) if isValidAddress(addr) => Some(addr)
+      case _ => None
     }
   }
 

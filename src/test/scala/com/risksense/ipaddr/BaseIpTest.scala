@@ -33,8 +33,7 @@ class BaseIpTest extends UnitSpec {
     val spanNet2 = IpNetwork("0.0.0.0/0")
     BaseIp.spanningCidr(Seq(net1, net2)) should be(spanNet1)
     BaseIp.spanningCidr(Seq(net3, net4)) should be(spanNet2)
-    an[IpaddrException] should be thrownBy
-      BaseIp.spanningCidr(Seq(spanNet1))
+    an[IpaddrException] should be thrownBy BaseIp.spanningCidr(Seq(spanNet1))
   }
 
   "CidrExclude" should "work properly" in {
@@ -77,7 +76,6 @@ class BaseIpTest extends UnitSpec {
   }
 
   "allMatchingCidrs" should "match all networks for a valid address" in {
-    // scalastyle:ignore underscore.import import.grouping
     val networks = nets.map(IpNetwork(_))
     BaseIp.allMatchingCidrs("10.2.1.2", nets) should be(networks.drop(1))
     BaseIp.allMatchingCidrs(addr1, nets) should be(Nil)

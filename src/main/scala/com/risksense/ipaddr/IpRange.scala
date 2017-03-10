@@ -98,7 +98,7 @@ class IpRange ( // scalastyle:ignore equals.hash.code
 
   /** Checks if a given [[IpNetwork]] belongs to this IpRange object.
     *
-    * @param that a Network object
+    * @param that an IpNetwork object
     * @return True if input network belongs to this IpRange, False otherwise.
     */
   def contains(that: IpNetwork): Boolean = {
@@ -112,12 +112,12 @@ class IpRange ( // scalastyle:ignore equals.hash.code
   /** Returns a sequence of [[IpNetwork]] objects found within the lower and upper bound addresses
     * of this IpRange.
     *
-    * @return Sequence of Network objects
+    * @return Sequence of IpNetwork objects
     */
   def cidrs: Seq[IpNetwork] = {
     val firstNetwork = IpNetwork(this.start, this.start.netmaskBits)
     val lastNetwork = IpNetwork(this.end, this.end.netmaskBits)
-    BaseIp.ipRangeToCidrs(firstNetwork, lastNetwork)
+    BaseIp.boundedNetworkSeq(firstNetwork, lastNetwork)
   }
 
   /** Override `equals`.
@@ -158,7 +158,7 @@ object IpRange {
     *
     * @param start Lower bound IP address in string format
     * @param end Upper bound IP address in string format
-    * @return Either IpRange if input addresses are valid, IpError otherwise.
+    * @return IpRange if input addresses are valid
     */
   @throws(classOf[IpaddrException])
   def apply(start: String, end: String): IpRange = new IpRange(IpAddress(start), IpAddress(end))

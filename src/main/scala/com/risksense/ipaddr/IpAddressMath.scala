@@ -28,21 +28,20 @@ trait IpAddressMath {
   /** Add to IP address.
     *
     * Increases the numerical value of this IPAddress by 'n' and returns a new IpAddress object.
-    * An instance of IpError is returned if the result exceeds maximum IP address value or is less
-    * than zero.
     *
     * @param n size of IP address increment.
     * @return new IpAddress object with incremented address.
+    * @throws IpaddrException if the resulting address is not valid.
     */
   def +(n: Int): IpAddress = IpAddress(this.numerical + n)
 
   /** Subtract from IP address
     *
     * Decreases the numerical value of this IPAddress by n and returns a new IpAddress object.
-    * An IndexError is raised if result exceeds maximum IP address value or is less than zero.
     *
     * @param n size of IP address decrement.
     * @return new IpAddress object with decremented address.
+    * @throws IpaddrException if the resulting address is not valid.
     */
   def -(n: Int): IpAddress = IpAddress(this.numerical - n)
 

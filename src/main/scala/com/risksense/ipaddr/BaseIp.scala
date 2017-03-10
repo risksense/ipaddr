@@ -19,7 +19,6 @@ package com.risksense.ipaddr
 import java.io.FileNotFoundException
 
 import scala.annotation.tailrec
-import scala.collection.immutable.NumericRange
 import scala.io.Source
 import scala.language.implicitConversions
 import scala.util.Failure
@@ -31,7 +30,7 @@ import com.typesafe.scalalogging.StrictLogging
 /** Defines shared RegExs and methods.
   *
   * Defines regular expressions and methods that are shared among IpAddress,
-  * Network and IpRange classes.
+  * IpNetwork and IpRange classes.
   */
 object BaseIp extends StrictLogging {
 
@@ -65,30 +64,32 @@ object BaseIp extends StrictLogging {
     *
     * @param mask     Numeric value of the mask
     * @param version  IP version number
-    * @return True if mask is valid, False otherwise
+    * @return True if the mask is valid, False otherwise
     */
   def isValidMask(mask: Int, version: Int): Boolean = version match {
     case Ipv4.version => Ipv4.isValidMask(mask)
     case _ => false
   }
 
-  /** Range generator
+  /** Create a bounded stream of IpAddresses
     *
-    * A generator that produces IPAddress objects between an arbitrary [start, stop) IP address
-    * with intervals of step between them. Sequences produce are inclusive of boundary IPs.
+    * Stream of IPAddress elements between an arbitrary [start, stop] IP address with intervals of
+    * step between them. Stream produced is inclusive of boundary addresses.
     *
     * @param start  Starting IP address
-    * @param end    Ending IP address(exclusive)
-    * @param step   Size of step between IP addresses. Defaults to 1.
-    * @return an iterator of one or more IpAddress objects.
+    * @param end    Ending IP address
+    * @param step   Size of step between IP addresses(defaults to 1). If you specify a negative
+    *               step and if startIp > endIp then a reversed collection is generated.
+    * @return A stream of IpAddress objects. An empty stream is returned if the step is 0 or if both
+    *         IpAddress have different version.
     */
-  def iterIpRange(start: IpAddress, end: IpAddress, step: Int = 1): Seq[IpAddress] = {
+  def addressStream(start: IpAddress, end: IpAddress, step: Int = 1): Stream[IpAddress] = {
     if ((start.version != end.version) || (step == 0)) {
-      Nil
-    } else if (step < 0) {
-      for { ipNum <- NumericRange(end.numerical, start.numerical, step) } yield IpAddress(ipNum)
+      Stream()
     } else {
-      for { ipNum <- NumericRange(start.numerical, end.numerical, step) } yield IpAddress(ipNum)
+      Range.Long.inclusive(start.numerical, end.numerical, step).toStream.map { ipNum =>
+        IpAddress(ipNum)
+      }
     }
   }
 
@@ -96,8 +97,8 @@ object BaseIp extends StrictLogging {
     * large enough to span the lower and upper bound IP addresses with a possible overlap on either
     * end.
     *
-    * @param nets A sequence of Network objects. Must contain at least two elements.
-    * @return A single spanning Network object.
+    * @param nets A sequence of IpNetwork objects. Must contain at least two elements.
+    * @return A single spanning IpNetwork object.
     */
   def spanningCidr(nets: Seq[IpNetwork]): IpNetwork = {
     val sortedIps = nets.sorted
@@ -116,36 +117,36 @@ object BaseIp extends StrictLogging {
     IpNetwork(ipnum, prefix)
   }
 
-  /** Convert IP range to CIDRs.
+  /** Creates a bounded sequence of IpNetworks.
     *
-    * Accepts an arbitrary start and end Network and returns a sequence of [[IpNetwork]] objects
+    * Accepts an arbitrary start and end IpNetwork and returns a sequence of [[IpNetwork]] objects
     * that fit exactly between the boundaries of the two with no overlap.
     *
-    * @param start  a Network object
-    * @param end    a Network object
-    * @return a sequence of Network objects
+    * @param startNetwork  Lower bound IpNetwork
+    * @param endNetwork    Upper bound IpNetwork
+    * @return A sequence of IpNetwork objects
     */
-  def ipRangeToCidrs(start: IpNetwork, end: IpNetwork): Seq[IpNetwork] = {
-    val cidrSpan = spanningCidr(Seq(start, end))
-    val width = start.ipAddr.width
-    lazy val exclude0 = IpNetwork(start.first - 1, width)
+  def boundedNetworkSeq(startNetwork: IpNetwork, endNetwork: IpNetwork): Seq[IpNetwork] = {
+    val cidrSpan = spanningCidr(Seq(startNetwork, endNetwork))
+    val width = startNetwork.ipAddr.width
+    lazy val exclude0 = IpNetwork(startNetwork.first - 1, width)
     lazy val newNetSeq = cidrPartition(cidrSpan, exclude0)._3
-    lazy val exclude1 = IpNetwork(end.last + 1, width)
+    lazy val exclude1 = IpNetwork(endNetwork.last + 1, width)
     val partitionProc = (newCidrSpan: IpNetwork) => cidrPartition(newCidrSpan, exclude1)._1
-    if (cidrSpan.first < start.first) {
-      /* `newNetSeq` stores Network objects. The last object in this Seq might overlap with the
+    if (cidrSpan.first < startNetwork.first) {
+      /* `newNetSeq` stores IpNetwork objects. The last object in this Seq might overlap with the
        * `end` range. Therefore, first read all the elements of newNetSeq into cidrList2 and then
        * check if the `last` element overlaps. If it does, then discard it, otherwise merge with
        * cidrList2.
        */
       val cidrList2 = newNetSeq.init
       val newCidrSpan = newNetSeq.last
-      if (newCidrSpan.last > end.last) {
+      if (newCidrSpan.last > endNetwork.last) {
         cidrList2 ++ partitionProc(newCidrSpan)
       } else {
         cidrList2 :+ newCidrSpan
       }
-    } else if (cidrSpan.last > end.last) {
+    } else if (cidrSpan.last > endNetwork.last) {
       partitionProc(cidrSpan)
     } else {
       Seq(cidrSpan)
@@ -154,9 +155,9 @@ object BaseIp extends StrictLogging {
 
   /** Removes a [[IpNetwork]] from the target Network.
     *
-    * @param target   network address in CIDR string formart that will be divided up
+    * @param target   Network address in CIDR string formart that will be divided up
     * @param exclude  A network address in CIDR string that will be moved from the target network
-    * @return sequence of Network objects remaining after exclusion.
+    * @return Sequence of IpNetwork objects remaining after exclusion.
     */
   def cidrExclude(target: String, exclude: String): Seq[IpNetwork] = {
     val targetNetwork = IpNetwork(target)
@@ -167,9 +168,9 @@ object BaseIp extends StrictLogging {
 
   /** Removes a [[IpNetwork]] from the target Network.
     *
-    * @param target   A Network to be divided up.
-    * @param exclude  A Network to be removed from the target.
-    * @return sequence of Network objects remaining after exclusion.
+    * @param target   An IpNetwork to be divided up.
+    * @param exclude  An IpNetwork to be removed from the target.
+    * @return Sequence of IpNetwork objects remaining after exclusion.
     */
   def cidrExclude(target: IpNetwork, exclude: IpNetwork): Seq[IpNetwork] = {
     val (before, _, after) = cidrPartition(target, exclude)
@@ -180,14 +181,14 @@ object BaseIp extends StrictLogging {
     *
     * Partitions a target [[IpNetwork]] object on an exclude Network.
     *
-    * @param target   A Network that needs to be divided up
-    * @param exclude  A Network to partition on
-    * @return A 3-tuple of sorted Network objects before the target, at the partition point, and
+    * @param target   An IpNetwork that needs to be divided up
+    * @param exclude  An IpNetwork to partition on
+    * @return A 3-tuple of sorted IpNetwork objects before the target, at the partition point, and
     *         after the target. Adding these three sequences returns the equivalent of the original
     *         network address.
     */
   def cidrPartition(
-      target: IpNetwork, // scalastyle:ignore method.length
+      target: IpNetwork,
       exclude: IpNetwork): (IndexedSeq[IpNetwork], IndexedSeq[IpNetwork], IndexedSeq[IpNetwork]) = {
 
     @tailrec // Tail recursive method that partitions a network.
@@ -200,18 +201,16 @@ object BaseIp extends StrictLogging {
       if (exclude.mask < prefix) {
         (left, right)
       } else {
-        val (matched, newLeft, newRight) =
-          if (exclude.first >= upper) {
-            val newNetwork = IpNetwork(lower, prefix)
-            (upper, left :+ newNetwork, right)
-          } else {
-            val newNetwork = IpNetwork(upper, prefix)
-            (lower, left, right :+ newNetwork)
-          }
+        val (matched, newLeft, newRight) = if (exclude.first >= upper) {
+                                             val newNetwork = IpNetwork(lower, prefix)
+                                             (upper, left :+ newNetwork, right)
+                                           } else {
+                                             val newNetwork = IpNetwork(upper, prefix)
+                                             (lower, left, right :+ newNetwork)
+                                           }
         if ((prefix + 1) <= target.ipAddr.width) {
           val newLower = matched
-          val newUpper = matched +
-            scala.math.pow(2, target.ipAddr.width - (prefix + 1)).toLong
+          val newUpper = matched + scala.math.pow(2, target.ipAddr.width - (prefix + 1)).toLong
           cidrPartitionRecurse(newLower, newUpper, prefix + 1, newLeft, newRight)
         } else {
           (newLeft, newRight)
@@ -235,22 +234,17 @@ object BaseIp extends StrictLogging {
       val iUpper = target.first +
         scala.math.pow(2, target.ipAddr.width - newPrefix).toLong
       val (left, right) =
-        cidrPartitionRecurse(
-          iLower,
-          iUpper,
-          newPrefix,
-          IndexedSeq(),
-          IndexedSeq())
+        cidrPartitionRecurse(iLower, iUpper, newPrefix, IndexedSeq(), IndexedSeq())
       (left, IndexedSeq(exclude), right.reverse)
     }
   }
 
-  /** Accepts a sequence of [[IpNetwork]]objects, merging them into the smallest possible list of
+  /** Accepts a sequence of [[IpNetwork]] objects, merging them into the smallest possible list of
     * CIDRs. It merges adjacent subnets where possible, those contained within others and also
     * removes any duplicates.
     *
-    * @param nets a sequence of Network objects.
-    * @return a summarized sequence of Network objects.
+    * @param nets Sequence of IpNetwork objects.
+    * @return A summarized sequence of IpNetwork objects.
     */
   def cidrMerge(nets: Seq[IpNetwork]): Seq[IpNetwork] = {
 
@@ -275,8 +269,7 @@ object BaseIp extends StrictLogging {
         if (currentVer == previousVer && currentFirst - 1 <= previousLast) {
           // Networks can be merged
           // Merged networks will change last tuple value to `None`
-          val newNet =
-          (currentVer, previousFirst, previousLast.max(currentLast), None)
+          val newNet = (currentVer, previousFirst, previousLast.max(currentLast), None)
           mergeRecurse(r1.updated(1, newNet).drop(1), r2.drop(1), result)
         } else {
           mergeRecurse(r1.drop(1), r2.drop(1), result :+ r1.head)
@@ -290,13 +283,13 @@ object BaseIp extends StrictLogging {
       val ranges = for { net <- nets.sorted } yield (net.version, net.first, net.last, Some(net))
       val netWidth = nets.head.ip.width // network bits
       val mergedRanges = mergeRecurse(ranges, ranges.drop(1), Nil)
-      val res: Seq[Seq[IpNetwork]] = for {rangeTuple <- mergedRanges } yield {
-        if (rangeTuple._4.isDefined) {
-          Seq(rangeTuple._4.get)
-        } else {
-          val startAddr = IpNetwork(rangeTuple._2, netWidth)
-          val endAddr = IpNetwork(rangeTuple._3, netWidth)
-          ipRangeToCidrs(startAddr, endAddr)
+      val res: Seq[Seq[IpNetwork]] = for { rangeTuple <- mergedRanges } yield {
+        rangeTuple._4 match {
+          case Some(x) => Seq(x)
+          case None =>
+            val startAddr = IpNetwork(rangeTuple._2, netWidth)
+            val endAddr = IpNetwork(rangeTuple._3, netWidth)
+            boundedNetworkSeq(startAddr, endAddr)
         }
       }
       res.flatten
@@ -322,7 +315,7 @@ object BaseIp extends StrictLogging {
     *
     * @param ip     A dot-delimited IP address
     * @param cidrs  A sequence of network addresses in CIDR notation
-    * @return The largest (least specific) matching Network from the provided sequence,
+    * @return The largest (least specific) matching IpNetwork from the provided sequence,
     *         None if there was no match.
     */
   def largestMatchingCidr(ip: String, cidrs: Seq[String]): Option[IpNetwork] = {
@@ -338,8 +331,8 @@ object BaseIp extends StrictLogging {
     *
     * @param ip     A dot-delimited IP address
     * @param cidrs  A sequence of network addresses in CIDR notation
-    * @return The smallest (most specific) matching Network from the provided sequence,
-    *         None if there was no match. IpError otherwise.
+    * @return The smallest (most specific) matching IpNetwork from the provided sequence,
+    *         None if there was no match.
     */
   def smallestMatchingCidr(ip: String, cidrs: Seq[String]): Option[IpNetwork] = {
     val addr = IpAddress(ip)
@@ -352,11 +345,11 @@ object BaseIp extends StrictLogging {
 
   /** Converts input data of CSV addresses into [[IpSet]].
     *
-    * @param target1     A sequence of addresses
-    * @param target2     A sequence of addresses
-    * @param excludeSeq  A sequence of addresses
-    * @return An IpSet resulting from equation (target1+target2)-excludeSeq, IpError if any
-    *         translation from address to IpSet fails
+    * @param target1     A sequence of dot-delimited IP addresses
+    * @param target2     A sequence of dot-delimited IP addresses
+    * @param excludeSeq  A sequence of dot-delimited IP addresses
+    * @return An IpSet resulting from equation (target1+target2)-excludeSeq
+    * @throws IpaddrException if any translation from address to IpSet fails
     */
   def arrsToCidrs(target1: Seq[String], target2: Seq[String], excludeSeq: Seq[String]): IpSet = {
     arrsToCidrs(target1.toIterator, target2.toIterator, excludeSeq.toIterator)
@@ -364,9 +357,9 @@ object BaseIp extends StrictLogging {
 
   /** Converts input data of CSV addresses into [[IpSet]].
     *
-    * @param target1    an iterator over addresses
-    * @param target2    an iterator over addresses
-    * @param excludeSeq an iterator over addresses
+    * @param target1    an iterator over dot-delimited IP addresses
+    * @param target2    an iterator over dot-delimited IP addresses
+    * @param excludeSeq an iterator over dot-delimited IP addresses
     * @return an IpSet resulting from equation (target1+target2)-excludeSeq
     * @throws IpaddrException if any translation from address to IpSet fails
     */
@@ -387,7 +380,7 @@ object BaseIp extends StrictLogging {
   /** Converts a sequence of strings into an IpSet.
     *
     * @param it An iterator over addresses in various formats (CIDR, glob, range)
-    * @return an IpSet constructed from the input sequence
+    * @return An IpSet constructed from the input sequence
     * @throws IpaddrException if error happens during conversion
     */
   @throws(classOf[IpaddrException])
@@ -414,9 +407,9 @@ object BaseIp extends StrictLogging {
                         // no results were found in the nmap iterator
                         throw new IpaddrException(IpaddrException.invalidCidrSequence)
                       } else {
-                        acc | iter.foldLeft(IpSet())((innerAcc, item) =>
-                          innerAcc | IpSet(
-                            IpNetwork(item, item.width)))
+                        acc | iter.foldLeft (IpSet()) { (innerAcc, item) =>
+                          innerAcc | IpSet(IpNetwork(item, item.width))
+                        }
                       }
                     case Failure(err) =>
                       // The value did not parse as any known format
@@ -430,8 +423,8 @@ object BaseIp extends StrictLogging {
 
   /** Accepts a valid IP range notation and converts it into IpRange.
     *
-    * @param data a string representation of IP range e.g "10.2.1.0-10.2.1.4"
-    * @return an IpRange if conversion was successful, IpError otherwise.
+    * @param data String representation of IP range e.g "10.2.1.0-10.2.1.4"
+    * @return An IpRange if conversion was successful.
     * @throws IpaddrException if an error occurs.
     */
   private def getRange(data: String): IpRange = {
@@ -445,17 +438,17 @@ object BaseIp extends StrictLogging {
 
   /** Converts input data of CSV addresses into [[IpSet]].
     *
-    * @param target     a CSV-separated list of targets
-    * @param targets    a filename containing IP representations
-    * @param exclusions a filename containing IP representations
-    * @return an IpSet resulting from equation (target1+target2)-excludeSeq,
+    * @param target          A CSV-separated list of targets
+    * @param targetFile      A filename containing IP representations
+    * @param exclusionsFile  A filename containing IP representations
+    * @return an IpSet resulting from equation (target1+target2)-excludeSeq.
     */
   @throws(classOf[IpaddrException])
-  def inputToCidrs(target: String, targets: String, exclusions: String): IpSet = {
+  def inputToCidrs(target: String, targetFile: String, exclusionsFile: String): IpSet = {
     try {
-      val target2 = Source.fromFile(targets).getLines
-      val excludeSeq = Source.fromFile(exclusions).getLines
-      linesToCidrs(target, target2, excludeSeq)
+      val targetFileLines = Source.fromFile(targetFile).getLines
+      val excludeFileLines = Source.fromFile(exclusionsFile).getLines
+      linesToCidrs(target, targetFileLines, excludeFileLines)
     } catch {
       case fnf: FileNotFoundException => throw fnf
     }
@@ -463,11 +456,10 @@ object BaseIp extends StrictLogging {
 
   /** CSV, lines, and exclude lines to IPSet.
     *
-    * @param csvLine      a CSV separated list of IP representations
-    * @param lines        an iterator over IP representation lines
-    * @param excludeLines an iterator over IP representation lines
-    * @return an IpSet resulting from equation (target1+target2)-excludeSeq,
-    *         IpError if any translation from address to IpSet fails
+    * @param csvLine      Comma separated list of IP representations
+    * @param lines        An iterator over IP representation lines
+    * @param excludeLines An iterator over IP representation lines
+    * @return An IpSet resulting from equation (target1+target2)-excludeSeq.
     */
   def linesToCidrs(
       csvLine: String,
@@ -478,12 +470,12 @@ object BaseIp extends StrictLogging {
 
   /** Chops an IpSet into smaller pieces.
     *
-    * Generates multiple IpSet of size not exceeding 256 hosts.
+    * Generates multiple IpSets of size not exceeding 256 hosts.
     *
-    * @param s an IpSet to chop
-    * @return a sequence of small IpSets
+    * @param ipSet An IpSet to chop
+    * @return A sequence of small IpSets
     */
-  def chopSet(s: IpSet): Seq[IpSet] = {
+  def chopSet(ipSet: IpSet): Seq[IpSet] = {
 
     /* Recursively chop networks to size no more than 256 hosts.
      *
@@ -507,20 +499,20 @@ object BaseIp extends StrictLogging {
       }
     }
 
-    if (s.isEmpty) {
-      Seq(s)
+    if (ipSet.isEmpty) {
+      Seq(ipSet)
     } else {
-      val choppedNetworks = chopRecurse(s.networkSeq, Nil)
+      val choppedNetworks = chopRecurse(ipSet.networkSeq, Nil)
       mergeSets(choppedNetworks.map(IpSet(_)))
     }
   }
 
   /** Merge IpSets containing fewer than 256 hosts.
     *
-    * @param s a sequence of IpSets to merge
-    * @return a sequence of merged IpSets
+    * @param ipSetSeq A sequence of IpSets to merge
+    * @return A sequence of merged IpSets
     */
-  private def mergeSets(s: Seq[IpSet]): Seq[IpSet] = {
+  private def mergeSets(ipSetSeq: Seq[IpSet]): Seq[IpSet] = {
 
     /* Recursively merge IpSets containing fewer than 256 hosts.
      *
@@ -548,10 +540,10 @@ object BaseIp extends StrictLogging {
       }
     }
 
-    if (s.isEmpty) {
-      s
+    if (ipSetSeq.isEmpty) {
+      ipSetSeq
     } else {
-      val (smallSets, bigSets) = s.partition {
+      val (smallSets, bigSets) = ipSetSeq.partition {
         _.volume != 256
       }
       mergeRecurse(smallSets, Nil) ++ bigSets
@@ -560,27 +552,24 @@ object BaseIp extends StrictLogging {
 
   /** A recursive function to evaluate spanning addresses.
     *
-    * Recursively compute IP addresses until prefix is valid and new IP
-    * address is higher than `lowIp` address. With each recursion, new value
-    * of IP address is calculated by decrementing the old value by the number
-    * of hosts that can fit inside the `newPrefix`. Recursion ends when the
-    * prefix <= 0 or new IP address becomes lower than `lowIp`.
+    * Recursively compute IP addresses until prefix is valid and new IP address is higher than
+    * `lowIp` address. With each recursion, new value of IP address is calculated by decrementing
+    * the old value by the number of hosts that can fit inside the `newPrefix`. Recursion ends when
+    * the prefix <= 0 or new IP address becomes lower than `lowIp`.
     *
-    * @param prefix numerical prefix
+    * @param prefix Numerical prefix
     * @param ip     Long equivalent of the upper IP address
     * @param lowIp  Long equivalent of the lower IP address
-    * @param width  number of bits in this IP address
+    * @param width  Number of bits in this IP address
     * @return tuple(prefix, ip)
     */
 
   @tailrec
   private def spanningCidrRecurse(
-    prefix: Int,
-    ip: Long,
-    lowIp: Long,
-    width: Int
-  )
-  : (Int, Long) = {
+      prefix: Int,
+      ip: Long,
+      lowIp: Long,
+      width: Int): (Int, Long) = {
     if (prefix > 0 && ip > lowIp) {
       val newPrefix = prefix - 1
       val ip2 = -(1L << (width - newPrefix))
@@ -592,19 +581,16 @@ object BaseIp extends StrictLogging {
 
   /** A recursive function for `allMatchingCidrs`.
     *
-    * @param ip    an [[IpAddress]] object
-    * @param cidrs a sequence of [[IpNetwork]] objects
-    * @param res   a sequence of matching Network objects
-    * @return a sequence of matching Networks, an empty sequence if there was
-    *         no match.
+    * @param ip    An [[IpAddress]] object
+    * @param cidrs A sequence of [[IpNetwork]] objects
+    * @param res   A sequence of matching IpNetwork objects
+    * @return A sequence of matching Networks, an empty sequence if there was no match.
     */
   @tailrec
   private def allMatchingCidrsRecurse(
-    ip: IpAddress,
-    cidrs: Seq[IpNetwork],
-    res: IndexedSeq[IpNetwork]
-  ):
-  IndexedSeq[IpNetwork] = {
+      ip: IpAddress,
+      cidrs: Seq[IpNetwork],
+      res: IndexedSeq[IpNetwork]): IndexedSeq[IpNetwork] = {
     if (cidrs.nonEmpty) {
       if (cidrs.head.contains(ip)) {
         allMatchingCidrsRecurse(ip, cidrs.drop(1), res :+ cidrs.head)
@@ -620,9 +606,9 @@ object BaseIp extends StrictLogging {
 
   /** Recursively convert sequence of addresses to [[IpNetwork]] objects.
     *
-    * @param s   a sequence of network addresses in CIDR notation
-    * @param res a sequence of Networks
-    * @return a sequence of Network objects, None if there was an error during conversion
+    * @param s   A sequence of network addresses in CIDR notation
+    * @param res A sequence of Networks
+    * @return A sequence of IpNetwork objects, None if there was an error during conversion
     */
   @tailrec
   private def netsRecurse(s: Seq[String], res: Option[Seq[IpNetwork]]): Option[Seq[IpNetwork]] = {
@@ -640,8 +626,8 @@ object BaseIp extends StrictLogging {
     *
     * @param ip     An [[IpAddress]]
     * @param cidrs  A sequence of [[IpNetwork]] objects.
-    * @param res    A matching Network object
-    * @return the largest (least specific) matching Network from the provided sequence,
+    * @param res    A matching IpNetwork object
+    * @return The largest (least specific) matching IpNetwork from the provided sequence,
     *         None if there was no match.
     */
   @tailrec
@@ -664,8 +650,8 @@ object BaseIp extends StrictLogging {
     *
     * @param ip     An [[IpAddress]]
     * @param cidrs  A sequence of [[IpNetwork]] objects
-    * @param res    A matching Network object
-    * @return the smallest (most specific) matching Network from the provided sequence,
+    * @param res    A matching IpNetwork object
+    * @return The smallest (most specific) matching IpNetwork from the provided sequence,
     *         None if there was no match.
     */
   @tailrec
