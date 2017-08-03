@@ -54,7 +54,7 @@ class IpNetwork private[ipaddr](
     val version: Int)
   extends Ordered[IpNetwork] {
 
-  /** The IP address of this Network object.
+  /** The IP address of this IpNetwork object.
     *
     * This may or may not be the same as the network IP address which varies according to the
     * value of the CIDR subnet prefix.
@@ -67,16 +67,16 @@ class IpNetwork private[ipaddr](
   /** Number of IP addresses in this Network. */
   lazy val size: Long = last - first + 1
 
-  /** The network address of this Network as an IpAddress object. */
+  /** The network address of this IpNetwork as an IpAddress object. */
   lazy val network: IpAddress = ipAddr
 
-  /** HashCode of this Network is calculated over all octets.
+  /** HashCode of this IpNetwork is calculated over all octets.
     *
     * Please refer to hashCode in [[IpAddress]] for details.
     */
   override def hashCode: Int = ipAddr.hashCode
 
-  /** True address for this Network object which omits any host bits to the right of the CIDR
+  /** True address for this IpNetwork object which omits any host bits to the right of the CIDR
     * subnet prefix.
     */
   val ipAddr: IpAddress = this.maskedAddr
@@ -84,24 +84,24 @@ class IpNetwork private[ipaddr](
   /** Number of host bits in this network address */
   val hostmaskNum: Long = (1L << (this.ipAddr.width - this.mask)) - 1
 
-  /** The host mask of this Network object */
+  /** The host mask of this IpNetwork object */
   val hostmask: IpAddress = IpAddress(this.hostmaskNum)
 
   /** Numerical value of the network address */
   val netmaskNum: Long = this.ip.maxNumerical ^ this.hostmaskNum
 
-  /** The subnet mask of this Network as an IpAddress object.
+  /** The subnet mask of this IpNetwork as an IpAddress object.
     * @example If netmask is 24, then IpAddress(255.255.255.0)
     */
   val netmask: IpAddress = IpAddress(this.netmaskNum)
 
-  /** The broadcast address of this Network object. */
+  /** The broadcast address of this IpNetwork object. */
   val broadcast: IpAddress = IpAddress(this.ip.numerical | this.hostmaskNum)
 
-  /** The numerical value of first IP address found within this Network object. */
+  /** The numerical value of first IP address found within this IpNetwork object. */
   val first: Long = this.ip.numerical & (this.ip.maxNumerical ^ this.hostmaskNum)
 
-  /** The numerical value of last IP address found within this Network object. */
+  /** The numerical value of last IP address found within this IpNetwork object. */
   val last: Long = this.ip.numerical | this.hostmaskNum
 
   /** A key tuple used to uniquely identify this Network.
@@ -124,62 +124,24 @@ class IpNetwork private[ipaddr](
   }
 
   /** All hosts in this Network. Includes network address and broadcast address as well. */
-  lazy val iter: IndexedSeq[IpAddress] = {
+  lazy val allHosts: Stream[IpAddress] = {
     if (this.version == 4) {
-      val res = BaseIp.iterIpRange(
-        IpAddress(this.first),
-        IpAddress(this.last))
-      // iterIpRange does NOT include the broadcast address, so we will add it
-      res.toIndexedSeq :+ IpAddress(this.last)
-    } else if (this.version == 6) {
-
-      /* RFC 4291 section 2.6.1 says that the first IP in the network
-       * is the Subnet-Router anycast address. This address cannot be
-       * assigned to a host, so use self.first+1.
-       */
-      val res = BaseIp.iterIpRange(
-        IpAddress(this.first),
-        IpAddress(this.last + 1))
-      // iterIpRange does NOT include the broadcast address, so we will add it
-      res.toIndexedSeq :+ IpAddress(this.last + 1)
+      BaseIp.addressStream(IpAddress(this.first), IpAddress(this.last))
     } else {
-      Nil.toIndexedSeq
+      Stream()
     }
   }
 
-  /** Host generator.
-    *
-    * A generator that provides all the IP addresses that can be assigned to hosts within the range
-    * of this IP object's subnet. For IPv4, the network and broadcast addresses are always excluded.
-    * Any subnet that contains less than 4 IP addresses yields None.
-    *
-    * @return Sequence of IpAddress objects
-    */
-  lazy val iterHosts: Seq[IpAddress] = {
-    if (iter.isEmpty) {
-      Nil
-    } else {
-      this.version match {
-        case Ipv4.version => if (this.size >= 4) {
-          iter.drop(1).init
-        } else {
-          Nil
-        }
-        case _ => Nil
-      }
-    }
-  }
-
-  /** The true CIDR address for this Network object which omits any host bits to the right of the
+  /** The true CIDR address for this IpNetwork object which omits any host bits to the right of the
     * CIDR subnet prefix.
     */
   def cidr: IpNetwork = IpNetwork(this.ipAddr, this.mask)
 
   /** Succeeding Network.
     *
-    * @param step The number of IP subnets between this Network object and the expected subnet.
+    * @param step The number of IP subnets between this IpNetwork object and the expected subnet.
     *             Defaults to 1.
-    * @return The adjacent subnet succeeding this Network object.
+    * @return The adjacent subnet succeeding this IpNetwork object.
     * @throws IpaddrException if the address cannot be calculated.
     */
   def next(step: Int = 1): IpNetwork = {
@@ -193,9 +155,9 @@ class IpNetwork private[ipaddr](
 
   /** Preceding network
     *
-    * @param step The number of IP subnets between this Network object and the expected subnet.
+    * @param step The number of IP subnets between this IpNetwork object and the expected subnet.
     *             Defaults to 1.
-    * @return The adjacent subnet preceding this Network object.
+    * @return The adjacent subnet preceding this IpNetwork object.
     * @throws IpaddrException if the address cannot be calculated.
     */
   def previous(step: Int = 1): IpNetwork = {
@@ -213,7 +175,7 @@ class IpNetwork private[ipaddr](
     *
     * @param prefix  A prefix value indicating size of subnets to be returned.
     * @param count   Number of consecutive networks to be returned. (Optional)
-    * @return a sequence of Network objects
+    * @return a sequence of IpNetwork objects
     */
   def subnet(prefix: Int, count: Int = 0): Seq[IpNetwork] = {
     if (prefix < 0 || prefix > this.ipAddr.width || prefix < this.mask) {
@@ -244,7 +206,7 @@ class IpNetwork private[ipaddr](
     *
     * @param prefix A prefix value for the maximum supernet (optional)
     *               Default: 0 - returns all possible supernets.
-    * @return a sequence of Network objects.
+    * @return a sequence of IpNetwork objects.
     */
   def supernet(prefix: Int = 0): Seq[IpNetwork] = {
     if (prefix < 0 || prefix > this.ipAddr.width) {
@@ -275,11 +237,11 @@ class IpNetwork private[ipaddr](
 
   /** Override `equals`.
     *
-    * Checks if two Network objects are equal. Networks are equal if they have
-    * same network address and same mask.
+    * Checks if two IpNetwork objects are equal. Networks are equal if they have same network
+    * address and same mask.
     *
-    * @param other Network object to compare with
-    * @return True if Network objects are equal, False otherwise
+    * @param other IpNetwork object to compare with
+    * @return True if IpNetwork objects are equal, False otherwise
     */
   override def equals(other: Any): Boolean = other match {
     case that: IpNetwork => that.canEquals(this) && (this.key == that.key)
@@ -288,10 +250,10 @@ class IpNetwork private[ipaddr](
 
   // $COVERAGE-ON$
 
-  /** Checks if that is same instance of this Network object.
+  /** Checks if that is same instance of this IpNetwork object.
     *
     * @param other an Object
-    * @return True if both objects are instances of Network class, False otherwise.
+    * @return True if both objects are instances of IpNetwork class, False otherwise.
     */
   def canEquals(other: Any): Boolean = other.isInstanceOf[IpNetwork]
 
@@ -311,10 +273,10 @@ class IpNetwork private[ipaddr](
     }
   }
 
-  /** Checks if the given Network belongs to this [[IpNetwork]] object.
+  /** Checks if the given IpNetwork belongs to this [[IpNetwork]] object.
     *
-    * @param net a Network object
-    * @return True if input Network belongs to this Network, False otherwise.
+    * @param net a IpNetwork object
+    * @return True if input IpNetwork belongs to this Network, False otherwise.
     */
   def contains(net: IpNetwork): Boolean = {
     if (this.version != net.version) {
@@ -408,17 +370,19 @@ object IpNetwork {
     *         None is returned if the input cannot be properly parsed.
     */
   private def parseIpNetwork(address: String): Option[(String, Int)] = {
-    val addrCIDR = Ipv4.expandPartialAddress(address.split('/')(0))
-    val maskArray = address.split('/')
-    val mask = if (maskArray.length == 2) {
-                 Ipv4.isValidMask(maskArray(1))
-               } else {
-                 Some(Ipv4.width) // Assume default mask with all network bits set
-               }
-    if (addrCIDR.isDefined && mask.isDefined) {
-      Some((addrCIDR.get, mask.get))
-    } else {
-      None
+    Ipv4.expandPartialAddress(address.split('/')(0)) match {
+      case Some(addrCidr) =>
+        val maskArray = address.split('/')
+        val mask = if (maskArray.length == 2) {
+                     Ipv4.isValidMask(maskArray(1))
+                   } else {
+                     Some(Ipv4.width) // Assume default mask with all network bits set
+                   }
+        mask match {
+          case Some(m) => Some((addrCidr, m))
+          case _ => None
+        }
+      case _ => None
     }
   }
 

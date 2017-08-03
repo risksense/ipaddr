@@ -69,7 +69,7 @@ object IpGlob {
   def globToIpRange(ipGlob: String): IpRange = {
     if (validGlob(ipGlob)) {
       val globArray = splitAddress(ipGlob)
-      val range = globArray.map(getBounds(_))
+      val range = globArray.map(getBounds)
       val (startIp, endIp) = range.unzip
       new IpRange(IpAddress(mergeStringSeq(startIp)), IpAddress(mergeStringSeq(endIp)))
     } else {
@@ -79,16 +79,17 @@ object IpGlob {
 
   /** Convert a network address to glob representation.
     *
-    * @param s a network address in CIDR notation
-    * @return a sequence of one or more blob strings if the input is valid, IpError otherwise
+    * @param netAddr Network address in CIDR notation
+    * @return A sequence of one or more blob strings if the input is valid
+    * @throws IpaddrException if conversion cannot be performed
     */
-  def cidrToGlob(s: String): Seq[String] = {
-    val net = IpNetwork(s)
+  def cidrToGlob(netAddr: String): Seq[String] = {
+    val net = IpNetwork(netAddr)
     val globs = ipRangeToGlobs(Ipv4.isValidAddress(net.first).get,
       Ipv4.isValidAddress(net.last).get)
     // There should only ever be a one to one mapping between a CIDR and an IP glob range.
     if (globs.length != 1) {
-      throw new IpaddrException(IpaddrException.invalidAddress(s))
+      throw new IpaddrException(IpaddrException.invalidAddress(netAddr))
     }
     globs
   }
@@ -98,9 +99,9 @@ object IpGlob {
     * Accepts an arbitrary start and end addresses and returns its equivalent sequence of
     * glob-style addresses.
     *
-    * @param start a dot-delimited address
-    * @param end   a dot-delimited address
-    * @return a sequence of one or more glob-style addresses if input is valid, IpError otherwise
+    * @param start A dot-delimited address
+    * @param end   A dot-delimited address
+    * @return A sequence of one or more glob-style addresses if input is valid
     */
   def ipRangeToGlobs(start: String, end: String): Seq[String] = {
     ipRangeToGlobs(IpAddress(start), IpAddress(end))
@@ -125,7 +126,7 @@ object IpGlob {
     } else {
       // This is a workaround. It produces non-optimal but valid glob conversions.
       // Break input range into CIDRs before conversion to globs.
-      val cidrs = BaseIp.ipRangeToCidrs(IpNetwork(start, end.width), IpNetwork(end, end.width))
+      val cidrs = BaseIp.boundedNetworkSeq(IpNetwork(start, end.width), IpNetwork(end, end.width))
       val res = for { c <- cidrs } yield {
         val lb = Ipv4.isValidAddress(c.first).get
         val ub = Ipv4.isValidAddress(c.last).get
@@ -165,12 +166,12 @@ object IpGlob {
     * match it.
     *
     * @param ipGlob a glob-style address
-    * @return a sequence of Network objects that exactly match the input.
+    * @return a sequence of IpNetwork objects that exactly match the input.
     * @throws IpaddrException if an error occurs.
     */
   def globToCidrs(ipGlob: String): Seq[IpNetwork] = {
     val glob = globToIpTuple(ipGlob)
-    BaseIp.ipRangeToCidrs(IpNetwork(glob._1, glob._1.width), IpNetwork(glob._2, glob._2.width))
+    BaseIp.boundedNetworkSeq(IpNetwork(glob._1, glob._1.width), IpNetwork(glob._2, glob._2.width))
   }
 
   /** Convert IpGlob to a pair of [[IpAddress]] objects.
@@ -183,7 +184,7 @@ object IpGlob {
   def globToIpTuple(ipGlob: String): (IpAddress, IpAddress) = {
     if (validGlob(ipGlob)) {
       val globArray = splitAddress(ipGlob)
-      val range = globArray.map(getBounds (_))
+      val range = globArray.map(getBounds)
       val (startIp, endIp) = range.unzip
       (IpAddress(mergeStringSeq(startIp)), IpAddress(mergeStringSeq(endIp)))
     } else {
@@ -246,18 +247,15 @@ object IpGlob {
     * @example 2-8 = (2, 8) <br/>
     * * = (0, 255) <br/>
     * 4 = (4, 4)
-    *
-    * @param s an octet
-    * @return a tuple(lower, upper) value of input octet
     */
-  private def getBounds(s: String): (String, String) = {
-    if (s.contains('-')) {
-      val bounds = s.split('-')
+  private def getBounds: (String => (String, String)) = (octet: String) => {
+    if (octet.contains('-')) {
+      val bounds = octet.split('-')
       (bounds(0), bounds(1))
-    } else if (s == Wildcard) {
+    } else if (octet == Wildcard) {
       ("0", "255")
     } else {
-      (s, s)
+      (octet, octet)
     }
   }
 

@@ -20,7 +20,7 @@ import scala.annotation.tailrec
 import scala.collection.SortedSet
 import scala.util.hashing.MurmurHash3
 
-/** Represents an unordered collection (set) of Network elements.
+/** Represents an unordered collection (set) of IpNetwork elements.
   *
   * @constructor creates a new IpSet.
   * @param networkSeq a sorted sequence of [[IpNetwork]] objects.
@@ -51,6 +51,8 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     *
     * IpRange equivalent to this IpSet only if all its members form a single contiguous sequence,
     * otherwise generates a IpaddrException.
+    *
+    * @note This can be resource intensive if the address space is huge.
     */
   @throws(classOf[IpaddrException])
   lazy val ipRange: IpRange = {
@@ -58,8 +60,8 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
       if (networkSeq.isEmpty) {
         throw new IpaddrException("Cannot create IpRange from an empty IpSet.")
       } else {
-        val ip1 = IpAddress(networkSeq.head.iter.head)
-        val ip2 = IpAddress(networkSeq.last.iter.last)
+        val ip1 = IpAddress(networkSeq.head.allHosts.head)
+        val ip2 = IpAddress(networkSeq.last.allHosts.last)
         new IpRange(ip1, ip2)
       }
     } else {
@@ -105,7 +107,7 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     */
   def canEquals(other: Any): Boolean = other.isInstanceOf[IpSet]
 
-  /** Checks if every Network in this [[IpSet]] is present in that IpSet and vice-versa.
+  /** Checks if every IpNetwork in this [[IpSet]] is present in that IpSet and vice-versa.
     *
     * @param that an IpSet to match this IpSet with
     * @return True if all networks match, False otherwise.
@@ -131,13 +133,13 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     this + newNetwork
   }
 
-  /** Add a Network to this IpSet
+  /** Add a IpNetwork to this IpSet
     *
     * Adds a [[IpNetwork]] to this IpSet and returns a new IpSet. Where possible the input Network
     * is merged with other Networks of `this` set to form more concise blocks.
     *
-    * @param that a Network object.
-    * @return an IpSet resulting from addition of `that` Network to `this`
+    * @param that a IpNetwork object.
+    * @return an IpSet resulting from addition of `that` IpNetwork to `this`
     */
   def +(that: IpNetwork): IpSet = { // scalastyle:ignore method.name
     if (this.contains(that)) {
@@ -181,7 +183,7 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     *
     * Removes a [[IpNetwork]] from this IpSet and returns a new IpSet.
     *
-    * @param that the Network object to remove from this IpSet.
+    * @param that the IpNetwork object to remove from this IpSet.
     * @return a new IpSet
     */
   def -(that: IpNetwork): IpSet = { // scalastyle:ignore method.name
@@ -296,8 +298,8 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
 
   /** Test if a given [[IpNetwork]] is present in this IpSet.
     *
-    * @param network a Network object
-    * @return True if input Network is present in this IpSet, False otherwise.
+    * @param network a IpNetwork object
+    * @return True if input IpNetwork is present in this IpSet, False otherwise.
     */
   def contains(network: IpNetwork): Boolean = this.exists(_.contains(network))
 
@@ -344,7 +346,7 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
      *
      * @param s1 `this` IpSets network sequence
      * @param s2 `that` IpSets network sequence
-     * @param result a sequence of Network objects common in `this` and `that`
+     * @param result a sequence of IpNetwork objects common in `this` and `that`
      */
     @tailrec
     def intersectRecurse(
@@ -408,7 +410,7 @@ object IpSet {
 
   /** Creates a new IpSet from the given [[IpNetwork]]
     *
-    * @param network a Network object
+    * @param network a IpNetwork object
     * @return an IpSet
     */
   def apply(network: IpNetwork): IpSet = IpSet(Seq(network))
@@ -429,7 +431,7 @@ object IpSet {
 
   /** Creates a new IpSet from a sequence of [[IpNetwork]] objects.
     *
-    * @param netSeq a sequence of Network objects
+    * @param netSeq a sequence of IpNetwork objects
     * @return an IpSet
     */
   def apply(netSeq: Seq[IpNetwork]): IpSet = {

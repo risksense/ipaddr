@@ -6,9 +6,6 @@ lazy val root = (project in file("."))
     name := "ipaddr",
     organization := "com.risksense",
     version := "1.0.1",
-    resolvers ++= Seq(
-      "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
-    ),
     scalaVersion := "2.11.8",
     scalacOptions ++= Seq(
       "-feature",
@@ -25,4 +22,3 @@ lazy val root = (project in file("."))
       "org.scalatest" %% "scalatest" % "3.0.1" % "test"
     )
   )
-
