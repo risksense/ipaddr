@@ -1,12 +1,9 @@
-
-lazy val typesafeReleases = "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
-
 lazy val root = (project in file("."))
   .settings(
     name := "ipaddr",
     organization := "com.risksense",
-    version := "1.0.1",
-    scalaVersion := "2.11.8",
+    version := "1.0.2",
+    scalaVersion := "2.12.4",
     scalacOptions ++= Seq(
       "-feature",
       "-deprecation",
@@ -15,9 +12,9 @@ lazy val root = (project in file("."))
       "-Xlint",
       "-Xverify",
       "-target:jvm-1.8"),
-    resolvers ++= Seq(typesafeReleases),
+    resolvers += Resolver.sonatypeRepo("releases"),
     libraryDependencies ++= Seq(
-      "ch.qos.logback" % "logback-classic" % "1.1.7",
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
       "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
       "org.scalatest" %% "scalatest" % "3.0.1" % "test"
     )

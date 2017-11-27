@@ -66,9 +66,6 @@ class IpNetworkTest extends UnitSpec {
   }
 
   it should "perform supernet operation" in {
-    val net1Supernet1 = IpNetwork("192.168.0.0/22")
-    val net1Supernet2 = IpNetwork("192.168.0.0/23")
-    val superNetList = List(net1Supernet1, net1Supernet2)
     net1.supernet(22).size should be(2)
     net1.supernet(33) should be(Nil)
   }
