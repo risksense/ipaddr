@@ -3,7 +3,7 @@ lazy val root = (project in file("."))
     name := "ipaddr",
     organization := "com.risksense",
     version := "1.0.2",
-    scalaVersion := "2.12.4",
+    scalaVersion := "2.12.6",
     scalacOptions ++= Seq(
       "-feature",
       "-deprecation",
@@ -15,7 +15,7 @@ lazy val root = (project in file("."))
     resolvers += Resolver.sonatypeRepo("releases"),
     libraryDependencies ++= Seq(
       "ch.qos.logback" % "logback-classic" % "1.2.3",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0",
-      "org.scalatest" %% "scalatest" % "3.0.1" % "test"
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
+      "org.scalatest" %% "scalatest" % "3.0.5" % "test"
     )
   )

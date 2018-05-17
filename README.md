@@ -4,6 +4,11 @@
 Network address manipulation library for Scala. Inspired by [netaddr](https://github.com/drkjam/netaddr)
 library for Python. Examples in this readme are taken from [here](https://netaddr.readthedocs.io/en/latest/).
 
+## Usage
+Add the following to your build.sbt:
+
+`libraryDependencies += "com.risksense" % "ipaddr_2.12" % "1.0.2"`
+
 ## Tutorial
   * [IpAddress](#ipaddress)
   * [IpNetwork](#ipnetwork)

@@ -20,7 +20,6 @@ import java.io.FileNotFoundException
 
 import scala.annotation.tailrec
 import scala.io.Source
-import scala.language.implicitConversions
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -35,7 +34,7 @@ import com.typesafe.scalalogging.StrictLogging
 object BaseIp extends StrictLogging {
 
   /** A helper method to convert string to integer. */
-  val StringToInt: (String => Int) = Integer.parseInt(_: String)
+  val StringToInt: String => Int = Integer.parseInt(_: String)
 
   /** Check if a dot-delimited address string is valid.
     *
