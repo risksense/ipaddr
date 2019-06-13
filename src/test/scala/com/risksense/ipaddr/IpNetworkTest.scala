@@ -74,6 +74,12 @@ class IpNetworkTest extends UnitSpec {
     net1.subnet(26).size should be(4) // scalastyle:ignore
     net1.subnet(26).size should be(4)
     net1.subnet(33) should be(Nil)
+
+    val largeAmountOfSubnets = net6.subnet(17, 100000)
+
+    largeAmountOfSubnets.size should be (100000)
+    largeAmountOfSubnets.forall(s => s.mask == 17) should be(true)
+
   }
 
   it should "perform next operation" in {

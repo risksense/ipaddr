@@ -7,7 +7,7 @@ library for Python. Examples in this readme are taken from [here](https://netadd
 ## Usage
 Add the following to your build.sbt:
 
-`libraryDependencies += "com.risksense" % "ipaddr_2.12" % "1.0.2"`
+`libraryDependencies += "com.risksense" % "ipaddr_2.12" % "1.0.3"`
 
 ## Tutorial
   * [IpAddress](#ipaddress)

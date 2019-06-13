@@ -181,8 +181,7 @@ class IpNetwork private[ipaddr](
     if (prefix < 0 || prefix > this.ipAddr.width || prefix < this.mask) {
       Nil
     } else {
-      val maxSubnets = scala.math.pow(2, this.ipAddr.width - this.mask).toInt /
-        scala.math.pow(2, this.ipAddr.width - prefix).toInt
+      val maxSubnets = scala.math.pow(2, prefix - this.mask).toInt
       val countNew = count match {
         case 0 => maxSubnets
         case _ => count
