@@ -112,33 +112,4 @@ class BaseIpTest extends UnitSpec {
     BaseIp.smallestMatchingCidr(addr1, Nil) should be(None)
   }
 
-  "arrToCidrs" should "generate IpSet" in {
-    val targets = Seq("192.168.0.1", "192.168.1.1/24", "192.168.2.*", "192.168.3.1-192.168.3.3",
-                      "192.168.4-5.1")
-    BaseIp.arrToCidrs(targets.toIterator).toString should
-      be("IpSet(192.168.0.1/32, 192.168.1.0/24, 192.168.2.0/24, 192.168.3.1/32, " +
-        "192.168.3.2/31, 192.168.4.1/32, 192.168.5.1/32)")
-    an[IpaddrException] should be thrownBy BaseIp.arrToCidrs(Iterator("z"))
-  }
-
-  "arrsToCidrs" should "evaluate IpSet" in {
-    val target = Seq("192.168.0.1")
-    val targets = Seq("192.168.1.1", "192.168.1.2", "192.168.1.3")
-    val exclusions = Seq("192.168.1.2", "192.168.1.3")
-    val exclusions2 = Seq("192.168.1.a")
-    BaseIp.arrsToCidrs(target, targets, exclusions).toString should
-      be("IpSet(192.168.0.1/32, 192.168.1.1/32)")
-    an[IpaddrException] should be thrownBy BaseIp.arrsToCidrs(target, targets, exclusions2)
-    an[IpaddrException] should be thrownBy BaseIp.arrsToCidrs(target, exclusions2, exclusions2)
-    an[IpaddrException] should be thrownBy BaseIp.arrsToCidrs(exclusions2, targets, exclusions)
-  }
-
-  "chopSet" should "chop big sets" in {
-    val nets = Seq("172.24.1.0/22", "10.0.0.1/32", "192.168.1.1/30")
-    val networks = nets.map(IpNetwork(_))
-    val s = IpSet(networks)
-    BaseIp.chopSet(s).size should be(5)
-    BaseIp.chopSet(IpSet()) should be(Seq(IpSet()))
-  }
-
 }
