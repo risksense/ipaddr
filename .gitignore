@@ -31,6 +31,7 @@
 /project/target/
 /target/
 /.scalastyle
+/null
 
 # IDEA specific
 /.idea/*

@@ -4,16 +4,10 @@
 Network address manipulation library for Scala. Inspired by [netaddr](https://github.com/drkjam/netaddr)
 library for Python. Examples in this readme are taken from [here](https://netaddr.readthedocs.io/en/latest/).
 
-## Usage
-Add the following to your build.sbt:
-
-`libraryDependencies += "com.risksense" % "ipaddr_2.12" % "1.0.2"`
-
 ## Tutorial
   * [IpAddress](#ipaddress)
   * [IpNetwork](#ipnetwork)
   * [IpRange](#iprange)
-  * [IpSet](#ipset)
   * [Nmap style address](#nmap)
 
 ## Contributing
@@ -212,68 +206,6 @@ r1.contains(IpAddress("10.1.2.4")) // true
 r1.contains("10.1.2.4") // true
 r1.contains("10.1.2.12") // false
 r1.contains(IpNetwork("10.1.2.0/31")) // false
-```
-
-### <a name="ipset"></a>IpSet
-**Create an IpSet form IpNetwork, IpRange or a sequence of IpNetwork elements**
-```scala
-val s1 = IpSet(IpRange("10.1.2.0", "10.1.2.8"))
-val s2 = IpSet(IpNetwork("10.1.2.0/28"))
-val s3 = IpSet(Seq(IpNetwork("10.1.2.0"), IpNetwork("10.1.2.8")))
-val emptySet = IpSet()
-s1.head // 10.1.2.0/29
-s1.ipRange // 10.1.2.0-10.1.2.8
-s2.ipRange // 10.1.2.0-10.1.2.15
-s1.isContiguous // true
-s1.volume // 9
-```
-
-**Adding and removing elements from IpSet**
-
-Add/remove an IpAddress, IpNetwork and IpRange from an IpSet.
-```scala
-s1 + IpAddress("10.1.2.10") // IpSet(10.1.2.0/29, 10.1.2.8/32, 10.1.2.10/32)
-s1 + IpAddress("10.1.2.0") // IpSet(10.1.2.0/29, 10.1.2.8/32)
-s1 - IpAddress("10.1.2.0") // IpSet(10.1.2.1/32, 10.1.2.2/31, 10.1.2.4/30, 10.1.2.8/32)
-s1 - IpNetwork("10.1.2.2/31") // IpSet(10.1.2.0/31, 10.1.2.4/30, 10.1.2.8/32)
-s1 - IpRange("10.1.2.0", "10.1.2.8") // IpSet()
-```
-**Comparing IpSets**
-```scala
-val largeSet = IpSet(IpRange("10.1.2.0", "10.1.2.8"))
-val smallSet = IpSet(IpRange("10.1.2.0", "10.1.2.6"))
-smallSet < largeSet // true
-smallSet < smallSet // false
-smallSet <= largeSet // true.  Equivalent to smallSet.subsetOf(largeSet)
-smallSet > largeSet // false
-smallSet >= largeSet // false. Equivalent to smallSet.supersetOf(largeSet)
-```
-
-**IpSet membership**
-
-Check if an IpAddress or IpNetwork belongs to an IpSet.
-```scala
-val ipSet = IpSet(IpRange("10.1.2.0", "10.1.2.8"))
-ipSet.contains(IpAddress("10.1.2.6")) // true
-ipSet.contains(IpAddress("10.1.2.9")) // false
-ipSet.contains(IpNetwork("10.1.2.4/30")) // true
-```
-Check if an IpSet belongs to another IpSet
-```scala
-val s1 = IpSet(Seq(IpNetwork("10.1.2.6"), IpNetwork("10.1.2.8")))
-val s2 = IpSet(Seq(IpNetwork("10.1.2.8"), IpNetwork("10.1.2.10")))
-val s3 = IpSet(IpNetwork("10.1.2.9"))
-s1.isDisjoint(s2) // false
-s1.isDisjoint(s3) // true. Because s3 has nothing in common with s1.
-```
-
-**Set operations on IpSet**
-```scala
-val s1 = IpSet(Seq(IpNetwork("10.1.2.6"), IpNetwork("10.1.2.8")))
-val s2 = IpSet(Seq(IpNetwork("10.1.2.8"), IpNetwork("10.1.2.10")))
-s1 & s2 // IpSet(10.1.2.8/32). Equivalent to s1.intersect(s2)
-s1 | s2 // IpSet(10.1.2.6/32, 10.1.2.8/32, 10.1.2.10/32). Equivalent to s1.union(s2)
-s1 ^ s2 // IpSet(10.1.2.6/32, 10.1.2.10/32). Equivalent to s1.symmetricDiff(s2)
 ```
 
 ### <a name="nmap"></a>Nmap style addresses
