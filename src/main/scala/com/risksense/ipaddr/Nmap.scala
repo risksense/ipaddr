@@ -46,13 +46,13 @@ object Nmap extends {
     } else if (limit && addresses.head.length > 1) {
       throw new IpaddrException("Prohibitive number of addresses generated form the input.")
     } else {
-      val iters = addresses.map(_.toStream)
+      val iters = addresses.map(_.to(LazyList))
       val (src1, src2, src3, src4) = (iters.head, iters(1), iters(2), iters(3))
       src1.flatMap { w =>
         src2.flatMap { x =>
           src3.flatMap { y => src4.map(z => IpAddress(s"$w.$x.$y.$z")) }
         }
-      }.toIterator
+      }.iterator
     }
   }
 

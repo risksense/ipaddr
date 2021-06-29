@@ -351,7 +351,7 @@ object BaseIp extends StrictLogging {
     * @throws IpaddrException if any translation from address to IpSet fails
     */
   def arrsToCidrs(target1: Seq[String], target2: Seq[String], excludeSeq: Seq[String]): IpSet = {
-    arrsToCidrs(target1.toIterator, target2.toIterator, excludeSeq.toIterator)
+    arrsToCidrs(target1.iterator, target2.iterator, excludeSeq.iterator)
   }
 
   /** Converts input data of CSV addresses into [[IpSet]].
@@ -445,8 +445,8 @@ object BaseIp extends StrictLogging {
   @throws(classOf[IpaddrException])
   def inputToCidrs(target: String, targetFile: String, exclusionsFile: String): IpSet = {
     try {
-      val targetFileLines = Source.fromFile(targetFile).getLines
-      val excludeFileLines = Source.fromFile(exclusionsFile).getLines
+      val targetFileLines = Source.fromFile(targetFile).getLines()
+      val excludeFileLines = Source.fromFile(exclusionsFile).getLines()
       linesToCidrs(target, targetFileLines, excludeFileLines)
     } catch {
       case fnf: FileNotFoundException => throw fnf
@@ -464,7 +464,7 @@ object BaseIp extends StrictLogging {
       csvLine: String,
       lines: Iterator[String],
       excludeLines: Iterator[String]): IpSet = {
-    arrsToCidrs(csvLine.split(',').toIterator, lines, excludeLines)
+    arrsToCidrs(csvLine.split(',').iterator, lines, excludeLines)
   }
 
   /** Chops an IpSet into smaller pieces.

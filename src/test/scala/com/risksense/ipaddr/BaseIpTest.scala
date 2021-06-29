@@ -61,7 +61,7 @@ class BaseIpTest extends UnitSpec {
   }
 
   "cidrMerge" should "be able to perform network merging" in {
-    BaseIp.cidrMerge(Nil) should be('empty)
+    BaseIp.cidrMerge(Nil) should be(Symbol("empty"))
     BaseIp.cidrMerge(Seq(net1, net2)).size should be(2)
     val n1 = IpNetwork("10.2.3.0/16")
     val n2 = IpNetwork("10.1.2.3")
@@ -115,7 +115,7 @@ class BaseIpTest extends UnitSpec {
   "arrToCidrs" should "generate IpSet" in {
     val targets = Seq("192.168.0.1", "192.168.1.1/24", "192.168.2.*", "192.168.3.1-192.168.3.3",
                       "192.168.4-5.1")
-    BaseIp.arrToCidrs(targets.toIterator).toString should
+    BaseIp.arrToCidrs(targets.iterator).toString should
       be("IpSet(192.168.0.1/32, 192.168.1.0/24, 192.168.2.0/24, 192.168.3.1/32, " +
         "192.168.3.2/31, 192.168.4.1/32, 192.168.5.1/32)")
     an[IpaddrException] should be thrownBy BaseIp.arrToCidrs(Iterator("z"))

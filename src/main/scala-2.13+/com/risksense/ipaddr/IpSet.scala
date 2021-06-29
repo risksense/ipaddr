@@ -18,6 +18,10 @@ package com.risksense.ipaddr
 
 import scala.annotation.tailrec
 import scala.collection.SortedSet
+import scala.collection.SortedSetOps
+import scala.collection.SpecificIterableFactory
+import scala.collection.StrictOptimizedSortedSetOps
+import scala.collection.mutable
 import scala.util.hashing.MurmurHash3
 
 /** Represents an unordered collection (set) of IpNetwork elements.
@@ -26,7 +30,9 @@ import scala.util.hashing.MurmurHash3
   * @param networkSeq a sorted sequence of [[IpNetwork]] objects.
   */
 case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalastyle:ignore
-  extends SortedSet[IpNetwork] {
+  extends SortedSet[IpNetwork]
+    with SortedSetOps[IpNetwork, SortedSet, IpSet]
+    with StrictOptimizedSortedSetOps[IpNetwork, SortedSet, IpSet] {
 
   /** Size of this IpSet.
     *
@@ -70,23 +76,37 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     }
   }
 
+  override protected def fromSpecific(coll: IterableOnce[IpNetwork]): IpSet =
+    IpSet.fromSpecific(coll)
+
+  override protected def newSpecificBuilder: mutable.Builder[IpNetwork, IpSet] =
+    IpSet.newBuilder
+
+  /** Returns an empty IpSet.
+    *
+    * @return a new IpSet object with empty sequence `cidrs`.
+    */
+  override def empty: IpSet = IpSet.empty
+
+  def map[B](f: IpNetwork => IpNetwork): IpSet = strictOptimizedMap(newSpecificBuilder, f)
+
+  def flatMap[B](f: IpNetwork => IterableOnce[IpNetwork]): IpSet =
+    strictOptimizedFlatMap(newSpecificBuilder, f)
+
+  def collect[B](pf: PartialFunction[IpNetwork, IpNetwork]): IpSet =
+    strictOptimizedCollect(newSpecificBuilder, pf)
+
   /** HashCode of this IpSet calculated over hashCodes of all [[IpNetwork]] objects in this IpSet.
     */
   override val hashCode: Int = MurmurHash3.orderedHash(networkSeq.map(_.hashCode))
 
-  final implicit def ordering: Ordering[IpNetwork] = Ordering[IpNetwork]
+  final def ordering: Ordering[IpNetwork] = Ordering[IpNetwork]
 
   /** String representation of this IpSet.
     *
     * @return a String consisting of addresses in this IpSet separated by `, `
     */
   override def toString(): String = s"IpSet(${networkSeq.mkString(", ")})"
-
-  /** Returns an empty IpSet.
-    *
-    * @return a new IpSet object with empty sequence `cidrs`.
-    */
-  override def empty: IpSet = IpSet()
 
   /** Override `equals`.
     *
@@ -141,7 +161,7 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     * @param that a IpNetwork object.
     * @return an IpSet resulting from addition of `that` IpNetwork to `this`
     */
-  def +(that: IpNetwork): IpSet = { // scalastyle:ignore method.name
+  override def +(that: IpNetwork): IpSet = { // scalastyle:ignore method.name
     if (this.contains(that)) {
       this
     } else {
@@ -186,7 +206,7 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     * @param that the IpNetwork object to remove from this IpSet.
     * @return a new IpSet
     */
-  def -(that: IpNetwork): IpSet = { // scalastyle:ignore method.name
+  override def -(that: IpNetwork): IpSet = { // scalastyle:ignore method.name
     val (matched, unmatched) = networkSeq.partition(_.contains(that))
     if (matched.isEmpty) {
       this
@@ -212,7 +232,7 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     this.networkSeq.toIterator
   }
 
-  def keysIteratorFrom(start: IpNetwork): Iterator[IpNetwork] = {
+  override def iteratorFrom(start: IpNetwork): Iterator[IpNetwork] = {
     val matchFoundAt = this.networkSeq.indexWhere(_ >= start)
     if (matchFoundAt < 0) {
       Nil.toIterator
@@ -350,9 +370,9 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
      */
     @tailrec
     def intersectRecurse(
-        s1: Seq[IpNetwork],
-        s2: Seq[IpNetwork],
-        result: Seq[IpNetwork]): Seq[IpNetwork] = {
+      s1: Seq[IpNetwork],
+      s2: Seq[IpNetwork],
+      result: Seq[IpNetwork]): Seq[IpNetwork] = {
       if (s1.isEmpty || s2.isEmpty) {
         result
       } else {
@@ -400,10 +420,14 @@ case class IpSet private[ipaddr] (networkSeq: IndexedSeq[IpNetwork]) // scalasty
     IpSet(res.toSeq)
   }
 
+  override def diff(that: collection.Set[IpNetwork]): IpSet = {
+    val res = that.foldLeft(coll) (_ - _)
+    IpSet(res.to(Seq))
+  }
 }
 
 /** Contains various methods to facilitate creation of IpSet */
-object IpSet {
+object IpSet extends SpecificIterableFactory[IpNetwork, IpSet] {
 
   /** Creates an empty IpSet */
   def apply(): IpSet = new IpSet(Nil.toIndexedSeq)
@@ -443,4 +467,16 @@ object IpSet {
     }
   }
 
+  override def empty: IpSet = IpSet()
+
+  override def newBuilder: mutable.Builder[IpNetwork, IpSet] =
+    new mutable.ImmutableBuilder[IpNetwork, IpSet](empty) {
+      override def addOne(elem: IpNetwork): this.type = { elems = elems + elem; this }
+    }
+
+  override def fromSpecific(it: IterableOnce[IpNetwork]): IpSet = it match {
+    case ipSet: IpSet => ipSet
+    case seq: Seq[IpNetwork] => IpSet(seq)
+    case _ => IpSet(it.iterator.to(Seq))
+  }
 }
